@@ -1,0 +1,405 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>TikTok Profile Scraper</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: #fff;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 900px;
+            margin: 50px auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #aaa;
+            margin-bottom: 35px;
+        }
+
+        .card {
+            background: #1b1b1b;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.3);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ccc;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #444;
+            background: #111;
+            color: white;
+            border-radius: 7px;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border: 0;
+            border-radius: 7px;
+            background: #fff;
+            color: #111;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: .9;
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 25px;
+            padding: 15px;
+            background: #111;
+            border-radius: 7px;
+        }
+
+        .count {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .results {
+            margin-top: 25px;
+        }
+
+        .video {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #111;
+            border-radius: 6px;
+            word-break: break-all;
+        }
+
+        .video a {
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .video a:hover {
+            text-decoration: underline;
+        }
+
+        .downloads {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .downloads a {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            background: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 7px;
+        }
+
+        .downloads a:hover {
+            background: #444;
+        }
+
+        .note {
+            margin-top: 20px;
+            color: #888;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>TikTok Profile Scraper</h1>
+
+    <div class="subtitle">
+        Collect public video URLs from a TikTok profile
+    </div>
+
+    <div class="card">
+
+        <label for="profile">
+            TikTok Profile URL
+        </label>
+
+        <input
+            id="profile"
+            type="text"
+            placeholder="https://www.tiktok.com/@username"
+        >
+
+        <label for="maxVideos">
+            Maximum Videos
+        </label>
+
+        <input
+            id="maxVideos"
+            type="number"
+            value="50"
+            min="1"
+        >
+
+        <button
+            id="startButton"
+            onclick="startScraping()"
+        >
+            Start Scraping
+        </button>
+
+        <div class="status">
+
+            <div id="statusText">
+                Ready
+            </div>
+
+            <div class="count">
+                Found:
+                <span id="count">0</span>
+            </div>
+
+        </div>
+
+        <div class="results">
+
+            <h3>Video URLs</h3>
+
+            <div id="videoList"></div>
+
+        </div>
+
+        <div class="downloads">
+
+            <a href="/download/videos.json">
+                Download JSON
+            </a>
+
+            <a href="/download/videos.txt">
+                Download TXT
+            </a>
+
+        </div>
+
+        <div class="note">
+            This tool is intended for authorized/public-content
+            collection. It does not attempt to bypass CAPTCHA,
+            authentication, private-account restrictions, or
+            other access controls.
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+let polling = null;
+
+
+async function startScraping() {
+
+    const profile =
+        document.getElementById("profile").value.trim();
+
+    const maxVideos =
+        document.getElementById("maxVideos").value;
+
+    const button =
+        document.getElementById("startButton");
+
+    const statusText =
+        document.getElementById("statusText");
+
+    if (!profile) {
+
+        alert("Enter a TikTok profile URL.");
+
+        return;
+    }
+
+    button.disabled = true;
+
+    statusText.textContent =
+        "Starting scraper...";
+
+    document.getElementById("count")
+        .textContent = "0";
+
+    document.getElementById("videoList")
+        .innerHTML = "";
+
+    try {
+
+        const response = await fetch(
+            "/scrape",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+                    profile_url: profile,
+                    max_videos: maxVideos
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!data.success) {
+
+            statusText.textContent =
+                data.message;
+
+            button.disabled = false;
+
+            return;
+        }
+
+        pollStatus();
+
+    } catch (error) {
+
+        statusText.textContent =
+            "Failed to start scraper.";
+
+        button.disabled = false;
+    }
+}
+
+
+function pollStatus() {
+
+    if (polling) {
+        clearInterval(polling);
+    }
+
+    polling = setInterval(
+        async () => {
+
+            try {
+
+                const response =
+                    await fetch("/status");
+
+                const data =
+                    await response.json();
+
+                document.getElementById(
+                    "statusText"
+                ).textContent = data.message;
+
+                document.getElementById(
+                    "count"
+                ).textContent = data.found;
+
+                displayVideos(data.videos);
+
+                if (!data.running) {
+
+                    clearInterval(polling);
+
+                    document.getElementById(
+                        "startButton"
+                    ).disabled = false;
+                }
+
+            } catch (error) {
+
+                console.log(error);
+
+            }
+
+        },
+        1000
+    );
+}
+
+
+function displayVideos(videos) {
+
+    const list =
+        document.getElementById("videoList");
+
+    list.innerHTML = "";
+
+    videos.forEach(
+        (url, index) => {
+
+            const div =
+                document.createElement("div");
+
+            div.className = "video";
+
+            const link =
+                document.createElement("a");
+
+            link.href = url;
+
+            link.target = "_blank";
+
+            link.rel = "noopener noreferrer";
+
+            link.textContent =
+                `${index + 1}. ${url}`;
+
+            div.appendChild(link);
+
+            list.appendChild(div);
+        }
+    );
+}
+
+</script>
+
+</body>
+</html>
+
