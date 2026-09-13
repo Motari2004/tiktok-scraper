@@ -674,7 +674,7 @@ def run_for_url(profile_url, max_videos=50, scrolls=15, status=None):
     found = set()
     with sync_playwright() as p:
         set_status(status, "🌐 Launching Chromium...")
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1280, "height": 900})
         try:
             set_status(status, f"🌐 Opening profile: {profile_url}")
